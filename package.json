@@ -27,6 +27,7 @@
   "dependencies": {
     "@ai-sdk/fireworks": "^0.1.14",
     "@ai-sdk/openai": "^1.1.9",
+    "@google/genai": "^1.22.0",
     "@mendable/firecrawl-js": "^1.16.0",
     "ai": "^4.1.17",
     "cors": "^2.8.5",

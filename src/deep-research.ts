@@ -36,7 +36,7 @@ const firecrawl = new FirecrawlApp({
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
 
-// take en user query, return a list of SERP queries
+// take user query, return a list of SERP queries focused on company interview research
 async function generateSerpQueries({
   query,
   numQueries = 3,
@@ -51,7 +51,16 @@ async function generateSerpQueries({
   const res = await generateObject({
     model: getModel(),
     system: systemPrompt(),
-    prompt: `Given the following prompt from the user, generate a list of SERP queries to research the topic. Return a maximum of ${numQueries} queries, but feel free to return less if the original prompt is clear. Make sure each query is unique and not similar to each other: <prompt>${query}</prompt>\n\n${
+    prompt: `Given the following interview preparation research prompt from the user, generate a list of SERP queries to research company information, interview processes, and preparation strategies. Focus on queries that will help with interview preparation including:
+
+    - Company background, culture, and values
+    - Technical skills and requirements for the role
+    - Interview process and rounds
+    - Common interview questions
+    - Industry insights and company news
+    - Employee experiences and reviews
+    
+    Return a maximum of ${numQueries} queries, but feel free to return less if the original prompt is clear. Make sure each query is unique and not similar to each other: <prompt>${query}</prompt>\n\n${
       learnings
         ? `Here are some learnings from previous research, use them to generate more specific queries: ${learnings.join(
             '\n',
@@ -62,15 +71,15 @@ async function generateSerpQueries({
       queries: z
         .array(
           z.object({
-            query: z.string().describe('The SERP query'),
+            query: z.string().describe('The SERP query for company interview research'),
             researchGoal: z
               .string()
               .describe(
-                'First talk about the goal of the research that this query is meant to accomplish, then go deeper into how to advance the research once the results are found, mention additional research directions. Be as specific as possible, especially for additional research directions.',
+                'Describe the specific interview preparation goal this query aims to accomplish, including what information we need to find and how it will help with interview preparation. Be specific about interview-related insights.',
               ),
           }),
         )
-        .describe(`List of SERP queries, max of ${numQueries}`),
+        .describe(`List of SERP queries for interview preparation research, max of ${numQueries}`),
     }),
   });
   log(`Created ${res.object.queries.length} queries`, res.object.queries);
@@ -81,7 +90,7 @@ async function generateSerpQueries({
 async function processSerpResult({
   query,
   result,
-  numLearnings = 3,
+  numLearnings = 4,
   numFollowUpQuestions = 3,
 }: {
   query: string;
@@ -99,16 +108,26 @@ async function processSerpResult({
     abortSignal: AbortSignal.timeout(60_000),
     system: systemPrompt(),
     prompt: trimPrompt(
-      `Given the following contents from a SERP search for the query <query>${query}</query>, generate a list of learnings from the contents. Return a maximum of ${numLearnings} learnings, but feel free to return less if the contents are clear. Make sure each learning is unique and not similar to each other. The learnings should be concise and to the point, as detailed and information dense as possible. Make sure to include any entities like people, places, companies, products, things, etc in the learnings, as well as any exact metrics, numbers, or dates. The learnings will be used to research the topic further.\n\n<contents>${contents
+      `Given the following contents from a SERP search for interview preparation research query <query>${query}</query>, generate a list of learnings focused on interview preparation. Return a maximum of ${numLearnings} learnings, but feel free to return less if the contents are clear. 
+
+      Focus on extracting information that helps with interview preparation including:
+      - Company culture, values, and work environment
+      - Technical skills and requirements
+      - Interview process details and rounds
+      - Common interview questions and answers
+      - Company-specific insights and recent developments
+      - Employee experiences and interview tips
+      
+      Make sure each learning is unique and not similar to each other. The learnings should be concise and to the point, as detailed and information dense as possible. Include any entities like people, places, companies, products, technologies, etc., as well as any exact metrics, numbers, or dates. The learnings will be used to prepare comprehensive interview guidance.\n\n<contents>${contents
         .map(content => `<content>\n${content}\n</content>`)
         .join('\n')}</contents>`,
     ),
     schema: z.object({
-      learnings: z.array(z.string()).describe(`List of learnings, max of ${numLearnings}`),
+      learnings: z.array(z.string()).describe(`List of interview preparation learnings, max of ${numLearnings}`),
       followUpQuestions: z
         .array(z.string())
         .describe(
-          `List of follow-up questions to research the topic further, max of ${numFollowUpQuestions}`,
+          `List of follow-up questions to research interview preparation topics further, max of ${numFollowUpQuestions}`,
         ),
     }),
   });
@@ -134,15 +153,53 @@ export async function writeFinalReport({
     model: getModel(),
     system: systemPrompt(),
     prompt: trimPrompt(
-      `Given the following prompt from the user, write a final report on the topic using the learnings from research. Make it as as detailed as possible, aim for 3 or more pages, include ALL the learnings from research:\n\n<prompt>${prompt}</prompt>\n\nHere are all the learnings from previous research:\n\n<learnings>\n${learningsString}\n</learnings>`,
+      `Given the following interview preparation research prompt from the user, write a comprehensive interview preparation report using the learnings from research. The report should be detailed and well-structured, aiming for 4-6 pages. Include ALL the learnings from research and organize them into the following sections:
+
+      1. **Company Overview**
+         - Company background, mission, and values
+         - Recent news and developments
+         - Company culture and work environment
+         - Industry position and competitors
+
+      2. **Role Analysis**
+         - Job requirements and responsibilities
+         - Required technical skills
+         - Preferred qualifications
+         - Career growth opportunities
+
+      3. **Interview Process**
+         - Interview rounds and stages (with detailed descriptions)
+         - Timeline and duration
+         - Interview format (remote/in-person)
+         - Interviewers and their backgrounds
+
+      4. **Preparation Strategy**
+         - Technical preparation (specific skills to focus on)
+         - Behavioral preparation (STAR method, common questions)
+         - Company-specific preparation
+         - Mock interview suggestions
+
+      5. **Common Interview Questions**
+         - Technical questions with sample answers
+         - Behavioral questions with frameworks
+         - Company-specific questions
+         - Questions to ask the interviewer
+
+      6. **Success Tips and Best Practices**
+         - Interview day preparation
+         - Communication strategies
+         - Follow-up actions
+         - Red flags to watch for
+
+      Make the report actionable and specific, including concrete examples and practical advice:\n\n<prompt>${prompt}</prompt>\n\nHere are all the learnings from previous research:\n\n<learnings>\n${learningsString}\n</learnings>`,
     ),
     schema: z.object({
-      reportMarkdown: z.string().describe('Final report on the topic in Markdown'),
+      reportMarkdown: z.string().describe('Comprehensive interview preparation report in Markdown format'),
     }),
   });
 
   // Append the visited URLs section to the report
-  const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
+  const urlsSection = `\n\n## Sources and References\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
   return res.object.reportMarkdown + urlsSection;
 }
 

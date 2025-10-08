@@ -1,8 +1,8 @@
-# Open Deep Research
+# Company Interview Preparation Research Agent
 
-An AI-powered research assistant that performs iterative, deep research on any topic by combining search engines, web scraping, and large language models.
+An AI-powered research assistant that performs comprehensive company research and interview preparation guidance by combining search engines, web scraping, and large language models.
 
-The goal of this repo is to provide the simplest implementation of a deep research agent - e.g. an agent that can refine its research direction over time and deep dive into a topic. Goal is to keep the repo size at <500 LoC so it is easy to understand and build on top of.
+This tool specializes in helping job candidates prepare for interviews by providing detailed research on companies, roles, interview processes, and preparation strategies. It generates comprehensive reports covering company background, required skills, interview rounds, common questions, and practical preparation advice.
 
 If you like this project, please consider starring it and giving me a follow on [X/Twitter](https://x.com/dzhng). This project is sponsored by [Aomni](https://aomni.com).
 
@@ -128,7 +128,7 @@ docker exec -it deep-research npm run docker
 
 ## Usage
 
-Run the research assistant:
+Run the interview preparation research assistant:
 
 ```bash
 npm start
@@ -136,19 +136,33 @@ npm start
 
 You'll be prompted to:
 
-1. Enter your research query
-2. Specify research breadth (recommended: 3-10, default: 4)
-3. Specify research depth (recommended: 1-5, default: 2)
-4. Answer follow-up questions to refine the research direction
+1. Enter the company name
+2. Enter the job description
+3. Enter the role/position title
+4. Specify research breadth (recommended: 4-8, default: 6)
+5. Specify research depth (recommended: 2-4, default: 3)
+6. Answer follow-up questions to refine your interview preparation needs
 
 The system will then:
 
-1. Generate and execute search queries
-2. Process and analyze search results
+1. Generate and execute company-specific search queries
+2. Process and analyze search results for interview preparation
 3. Recursively explore deeper based on findings
-4. Generate a comprehensive markdown report
+4. Generate a comprehensive interview preparation report
 
-The final report will be saved as `report.md` or `answer.md` in your working directory, depending on which modes you selected.
+## Report Structure
+
+The generated report includes:
+
+- **Company Overview**: Background, culture, values, recent news
+- **Role Analysis**: Requirements, technical skills, qualifications
+- **Interview Process**: Rounds, timeline, format, interviewers
+- **Preparation Strategy**: Technical and behavioral preparation
+- **Common Interview Questions**: Technical, behavioral, and company-specific
+- **Success Tips**: Best practices and practical advice
+- **Sources**: All research references and URLs
+
+The final report will be saved as `[company_name]_interview_prep_report.md` in your working directory.
 
 ### Concurrency
 
