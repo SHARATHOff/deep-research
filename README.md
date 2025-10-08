@@ -1,8 +1,8 @@
-# Company Interview Preparation Research Agent
+# Interview Preparation Roadmap Generator
 
-An AI-powered research assistant that performs comprehensive company research and interview preparation guidance by combining search engines, web scraping, and large language models.
+An AI-powered research assistant that generates comprehensive interview preparation roadmaps by analyzing company information, job descriptions, and role requirements. The system uses Google's Gemini AI model to create structured roadmaps with specific preparation modules, difficulty levels, and timelines.
 
-This tool specializes in helping job candidates prepare for interviews by providing detailed research on companies, roles, interview processes, and preparation strategies. It generates comprehensive reports covering company background, required skills, interview rounds, common questions, and practical preparation advice.
+This tool specializes in helping job candidates prepare for interviews by providing detailed research on companies, roles, interview processes, and preparation strategies. It generates comprehensive roadmaps covering interview rounds, required skills, preparation modules, and practical preparation advice.
 
 If you like this project, please consider starring it and giving me a follow on [X/Twitter](https://x.com/dzhng). This project is sponsored by [Aomni](https://aomni.com).
 
@@ -11,75 +11,70 @@ If you like this project, please consider starring it and giving me a follow on 
 ```mermaid
 flowchart TB
     subgraph Input
-        Q[User Query]
-        B[Breadth Parameter]
-        D[Depth Parameter]
+        CN[Company Name]
+        JD[Job Description]
+        JR[Job Role]
+        WL[Weblink - Optional]
     end
 
-    DR[Deep Research] -->
-    SQ[SERP Queries] -->
-    PR[Process Results]
+    IR[Interview Research] -->
+    SQ[Search Queries] -->
+    WR[Web Research]
 
-    subgraph Results[Results]
+    subgraph Processing[Processing]
         direction TB
-        NL((Learnings))
-        ND((Directions))
+        JD_P[Parse Job Description]
+        CR[Company Research]
+        SM[Skill Mapping]
     end
 
-    PR --> NL
-    PR --> ND
+    WR --> JD_P
+    WR --> CR
+    JD_P --> SM
+    CR --> SM
 
-    DP{depth > 0?}
+    subgraph Output[Output]
+        direction TB
+        IR_R[Interview Rounds]
+        PM[Preparation Modules]
+        TL[Timeline]
+        CS[Company Tips]
+    end
 
-    RD["Next Direction:
-    - Prior Goals
-    - New Questions
-    - Learnings"]
-
-    MR[Markdown Report]
+    SM --> IR_R
+    SM --> PM
+    SM --> TL
+    SM --> CS
 
     %% Main Flow
-    Q & B & D --> DR
-
-    %% Results to Decision
-    NL & ND --> DP
-
-    %% Circular Flow
-    DP -->|Yes| RD
-    RD -->|New Context| DR
-
-    %% Final Output
-    DP -->|No| MR
+    CN & JD & JR & WL --> IR
 
     %% Styling
     classDef input fill:#7bed9f,stroke:#2ed573,color:black
     classDef process fill:#70a1ff,stroke:#1e90ff,color:black
-    classDef recursive fill:#ffa502,stroke:#ff7f50,color:black
     classDef output fill:#ff4757,stroke:#ff6b81,color:black
-    classDef results fill:#a8e6cf,stroke:#3b7a57,color:black
 
-    class Q,B,D input
-    class DR,SQ,PR process
-    class DP,RD recursive
-    class MR output
-    class NL,ND results
+    class CN,JD,JR,WL input
+    class IR,SQ,WR,JD_P,CR,SM process
+    class IR_R,PM,TL,CS output
 ```
 
 ## Features
 
-- **Iterative Research**: Performs deep research by iteratively generating search queries, processing results, and diving deeper based on findings
-- **Intelligent Query Generation**: Uses LLMs to generate targeted search queries based on research goals and previous findings
-- **Depth & Breadth Control**: Configurable parameters to control how wide (breadth) and deep (depth) the research goes
-- **Smart Follow-up**: Generates follow-up questions to better understand research needs
-- **Comprehensive Reports**: Produces detailed markdown reports with findings and sources
-- **Concurrent Processing**: Handles multiple searches and result processing in parallel for efficiency
+- **Company-Specific Research**: Uses web search to gather current information about the company
+- **Job Description Analysis**: Parses job requirements to identify key skills and topics
+- **Structured Roadmap**: Provides organized preparation timeline and difficulty levels
+- **Resource Recommendations**: Suggests specific resources for each topic
+- **Interview Rounds**: Identifies different types of interview rounds (MCQ, Coding, HR, etc.)
+- **Preparation Modules**: Maps skills to specific preparation areas (DSA, OOP, SQL, etc.)
+- **Gemini AI Integration**: Uses Google's Gemini 2.0 Flash model for intelligent analysis
 
 ## Requirements
 
 - Node.js environment
 - API keys for:
-  - Firecrawl API (for web search and content extraction)
-  - OpenAI API (for o3 mini model)
+  - Google Gemini API (for AI analysis and roadmap generation)
+  - Firecrawl API (optional, for web research)
 
 ## Setup
 
@@ -95,17 +90,9 @@ npm install
 3. Set up environment variables in a `.env.local` file:
 
 ```bash
-FIRECRAWL_KEY="your_firecrawl_key"
-# If you want to use your self-hosted Firecrawl, add the following below:
-# FIRECRAWL_BASE_URL="http://localhost:3002"
-
-OPENAI_KEY="your_openai_key"
+GOOGLE_GENERATIVE_AI_API_KEY="your_gemini_api_key"
+FIRECRAWL_KEY="your_firecrawl_key"  # optional
 ```
-
-To use local LLM, comment out `OPENAI_KEY` and instead uncomment `OPENAI_ENDPOINT` and `OPENAI_MODEL`:
-
-- Set `OPENAI_ENDPOINT` to the address of your local server (eg."http://localhost:1234/v1")
-- Set `OPENAI_MODEL` to the name of the model loaded in your local server.
 
 ### Docker
 
@@ -128,6 +115,69 @@ docker exec -it deep-research npm run docker
 
 ## Usage
 
+### API Endpoint
+
+Start the server:
+
+```bash
+npm run api
+```
+
+The API will be available at `http://localhost:3051`
+
+#### POST `/api/interview-roadmap`
+
+Generate an interview preparation roadmap:
+
+```bash
+curl -X POST http://localhost:3051/api/interview-roadmap \
+  -H "Content-Type: application/json" \
+  -d '{
+    "companyName": "Google",
+    "jobDescription": "We are looking for a Software Development Engineer to join our team. You will be responsible for designing, developing, and maintaining scalable software systems. Requirements include strong programming skills in Python/Java, experience with cloud platforms, and knowledge of data structures and algorithms.",
+    "jobRole": "SDE-1",
+    "weblink": "https://careers.google.com"
+  }'
+```
+
+#### Response Format
+
+```json
+{
+  "success": true,
+  "roadmap": {
+    "company": "Google",
+    "role": "SDE-1",
+    "rounds": [
+      {
+        "type": "MCQ",
+        "topics": {
+          "OS": {
+            "difficulty": "medium",
+            "preparation_modules": ["Operating Systems", "Process Management"],
+            "description": "Questions about operating system concepts, process scheduling, memory management",
+            "resources": ["Operating System Concepts", "LeetCode OS problems"]
+          }
+        },
+        "duration": "45 minutes",
+        "format": "Online",
+        "description": "Multiple choice questions covering computer science fundamentals"
+      }
+    ],
+    "preparation_timeline": {
+      "weeks_1_2": ["Review computer science fundamentals"],
+      "weeks_3_4": ["Focus on algorithms and data structures"],
+      "weeks_5_6": ["Advanced topics and mock interviews"]
+    },
+    "key_skills": ["Data Structures and Algorithms", "System Design"],
+    "company_specific_tips": ["Focus on clean, efficient code"],
+    "difficulty_overall": "hard"
+  }
+}
+```
+
+### Command Line Interface
+
 Run the interview preparation research assistant:
 
 ```bash
@@ -141,78 +191,68 @@ You'll be prompted to:
 3. Enter the role/position title
 4. Specify research breadth (recommended: 4-8, default: 6)
 5. Specify research depth (recommended: 2-4, default: 3)
-6. Answer follow-up questions to refine your interview preparation needs
 
 The system will then:
 
 1. Generate and execute company-specific search queries
 2. Process and analyze search results for interview preparation
 3. Recursively explore deeper based on findings
-4. Generate a comprehensive interview preparation report
+4. Generate a comprehensive interview preparation roadmap
 
-## Report Structure
+## Roadmap Structure
 
-The generated report includes:
+The generated roadmap includes:
 
-- **Company Overview**: Background, culture, values, recent news
-- **Role Analysis**: Requirements, technical skills, qualifications
-- **Interview Process**: Rounds, timeline, format, interviewers
-- **Preparation Strategy**: Technical and behavioral preparation
-- **Common Interview Questions**: Technical, behavioral, and company-specific
-- **Success Tips**: Best practices and practical advice
-- **Sources**: All research references and URLs
+- **Company**: Company name
+- **Role**: Job role/position
+- **Rounds**: Array of interview rounds with:
+  - Type (MCQ/Coding/HR/Technical/Project)
+  - Topics with difficulty levels and preparation modules
+  - Duration and format
+  - Description
+- **Preparation Timeline**: Week-by-week preparation schedule
+- **Key Skills**: Essential skills for the role
+- **Company-Specific Tips**: Tailored advice for the company
+- **Difficulty Overall**: Overall difficulty assessment
 
-The final report will be saved as `[company_name]_interview_prep_report.md` in your working directory.
+## Configuration
+
+### Environment Variables
+
+- `GOOGLE_GENERATIVE_AI_API_KEY`: Required. Your Google Gemini API key
+- `FIRECRAWL_KEY`: Optional. Firecrawl API key for web research
+- `FIRECRAWL_BASE_URL`: Optional. Custom Firecrawl endpoint
+- `FIRECRAWL_CONCURRENCY`: Optional. Concurrency limit (default: 2)
+- `CONTEXT_SIZE`: Optional. Context size for prompt trimming (default: 128000)
+- `PORT`: Optional. Server port (default: 3051)
 
 ### Concurrency
 
-If you have a paid version of Firecrawl or a local version, feel free to increase the `ConcurrencyLimit` by setting the `CONCURRENCY_LIMIT` environment variable so it runs faster.
+If you have a paid version of Firecrawl or a local version, feel free to increase the `FIRECRAWL_CONCURRENCY` environment variable so it runs faster.
 
 If you have a free version, you may sometimes run into rate limit errors, you can reduce the limit to 1 (but it will run a lot slower).
 
-### DeepSeek R1
-
-Deep research performs great on R1! We use [Fireworks](http://fireworks.ai) as the main provider for the R1 model. To use R1, simply set a Fireworks API key:
-
-```bash
-FIREWORKS_KEY="api_key"
-```
-
-The system will automatically switch over to use R1 instead of `o3-mini` when the key is detected.
-
-### Custom endpoints and models
-
-There are 2 other optional env vars that lets you tweak the endpoint (for other OpenAI compatible APIs like OpenRouter or Gemini) as well as the model string.
-
-```bash
-OPENAI_ENDPOINT="custom_endpoint"
-CUSTOM_MODEL="custom_model"
-```
-
 ## How It Works
 
-1. **Initial Setup**
+1. **Input Processing**
+   - Takes company name, job description, role, and optional weblink
+   - Generates targeted search queries for company research
 
-   - Takes user query and research parameters (breadth & depth)
-   - Generates follow-up questions to understand research needs better
+2. **Research Process**
+   - Performs web searches to gather company-specific information
+   - Analyzes job description to extract required skills and responsibilities
+   - Researches interview processes and common questions
 
-2. **Deep Research Process**
+3. **Roadmap Generation**
+   - Maps skills to preparation modules (DSA, OOP, SQL, System Design, etc.)
+   - Identifies different interview rounds and their topics
+   - Assigns difficulty levels and creates preparation timeline
+   - Provides company-specific tips and insights
 
-   - Generates multiple SERP queries based on research goals
-   - Processes search results to extract key learnings
-   - Generates follow-up research directions
+4. **Output**
+   - Returns structured JSON roadmap with all preparation details
+   - Includes resources, timelines, and practical advice
 
-3. **Recursive Exploration**
-
-   - If depth > 0, takes new research directions and continues exploration
-   - Each iteration builds on previous learnings
-   - Maintains context of research goals and findings
-
-4. **Report Generation**
-   - Compiles all findings into a comprehensive markdown report
-   - Includes all sources and references
-   - Organizes information in a clear, readable format
-  
 ## Community implementations
 
 **Python**: https://github.com/Finance-LLMs/deep-research-python

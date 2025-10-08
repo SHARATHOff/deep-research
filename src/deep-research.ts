@@ -5,7 +5,7 @@ import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { getModel, trimPrompt } from './ai/providers';
-import { systemPrompt } from './prompt';
+import { systemPrompt, interviewRoadmapPrompt } from './prompt';
 
 function log(...args: any[]) {
   console.log(...args);
@@ -30,13 +30,213 @@ type ResearchResult = {
 const ConcurrencyLimit = Number(process.env.FIRECRAWL_CONCURRENCY) || 2;
 
 // Initialize Firecrawl with optional API key and optional base url
-
 const firecrawl = new FirecrawlApp({
   apiKey: process.env.FIRECRAWL_KEY ?? '',
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
 
-// take user query, return a list of SERP queries focused on company interview research
+// Interview Roadmap Schema
+const InterviewRoundSchema = z.object({
+  type: z.string().describe('Round type (MCQ/Coding/HR/Technical/Project)'),
+  topics: z.record(z.object({
+    difficulty: z.enum(['easy', 'medium', 'hard']),
+    preparation_modules: z.array(z.string()),
+    description: z.string(),
+    resources: z.array(z.string())
+  })),
+  duration: z.string().describe('Expected duration'),
+  format: z.string().describe('Online/In-person/Phone'),
+  description: z.string().describe('Detailed description of this round')
+});
+
+const InterviewRoadmapSchema = z.object({
+  company: z.string(),
+  role: z.string(),
+  rounds: z.array(InterviewRoundSchema),
+  preparation_timeline: z.object({
+    weeks_1_2: z.array(z.string()),
+    weeks_3_4: z.array(z.string()),
+    weeks_5_6: z.array(z.string())
+  }),
+  key_skills: z.array(z.string()),
+  company_specific_tips: z.array(z.string()),
+  difficulty_overall: z.enum(['easy', 'medium', 'hard'])
+});
+
+// Generate interview preparation roadmap based on company and job details
+export async function generateInterviewRoadmap({
+  companyName,
+  jobDescription,
+  jobRole,
+  weblink,
+}: {
+  companyName: string;
+  jobDescription: string;
+  jobRole: string;
+  weblink?: string;
+}) {
+  log(`\nGenerating interview roadmap for ${companyName} - ${jobRole}\n`);
+
+  // Generate search queries for company-specific interview research
+  const searchQueries = await generateInterviewSearchQueries({
+    companyName,
+    jobRole,
+    jobDescription,
+  });
+
+  log(`Generated ${searchQueries.length} search queries`);
+
+  // Research company-specific interview information
+  const researchData = await performInterviewResearch(searchQueries);
+
+  // Generate the final roadmap using all collected information
+  const roadmap = await generateFinalRoadmap({
+    companyName,
+    jobDescription,
+    jobRole,
+    weblink,
+    researchData,
+  });
+
+  return roadmap;
+}
+
+// Generate search queries focused on interview preparation
+async function generateInterviewSearchQueries({
+  companyName,
+  jobRole,
+  jobDescription,
+}: {
+  companyName: string;
+  jobRole: string;
+  jobDescription: string;
+}) {
+  const res = await generateObject({
+    model: getModel(),
+    system: systemPrompt(),
+    prompt: `Generate search queries to research interview preparation for ${companyName} - ${jobRole} position.
+
+    Job Description: ${jobDescription}
+
+    Focus on finding information about:
+    - Company interview process and rounds
+    - Technical skills required for this role
+    - Common interview questions
+    - Company culture and values
+    - Recent company news and developments
+    - Employee experiences and interview tips
+
+    Generate 3-5 specific search queries that will help create a comprehensive interview preparation roadmap.`,
+    schema: z.object({
+      queries: z.array(z.object({
+        query: z.string().describe('Search query for interview research'),
+        purpose: z.string().describe('What information this query aims to find')
+      }))
+    }),
+  });
+
+  return res.object.queries;
+}
+
+// Perform research using the generated queries
+async function performInterviewResearch(queries: Array<{ query: string; purpose: string }>) {
+  const limit = pLimit(ConcurrencyLimit);
+  
+  const researchResults = await Promise.all(
+    queries.map(queryItem =>
+      limit(async () => {
+        try {
+          const result = await firecrawl.search(queryItem.query, {
+            timeout: 15000,
+            limit: 5,
+            scrapeOptions: { formats: ['markdown'] },
+          });
+
+          const contents = compact(result.data.map(item => item.markdown)).map(content =>
+            trimPrompt(content, 25_000),
+          );
+
+          log(`Research completed for: ${queryItem.query}`);
+
+          return {
+            query: queryItem.query,
+            purpose: queryItem.purpose,
+            contents,
+            urls: compact(result.data.map(item => item.url))
+          };
+        } catch (error) {
+          log(`Error researching query: ${queryItem.query}`, error);
+          return {
+            query: queryItem.query,
+            purpose: queryItem.purpose,
+            contents: [],
+            urls: []
+          };
+        }
+      })
+    )
+  );
+
+  return researchResults;
+}
+
+// Generate the final interview roadmap
+async function generateFinalRoadmap({
+  companyName,
+  jobDescription,
+  jobRole,
+  weblink,
+  researchData,
+}: {
+  companyName: string;
+  jobDescription: string;
+  jobRole: string;
+  weblink?: string;
+  researchData: Array<{
+    query: string;
+    purpose: string;
+    contents: string[];
+    urls: string[];
+  }>;
+}) {
+  const researchContent = researchData
+    .map(item => `
+Query: ${item.query}
+Purpose: ${item.purpose}
+Content: ${item.contents.join('\n\n')}
+`)
+    .join('\n\n---\n\n');
+
+  const res = await generateObject({
+    model: getModel(),
+    system: interviewRoadmapPrompt(),
+    prompt: trimPrompt(`
+Create a comprehensive interview preparation roadmap for:
+
+Company: ${companyName}
+Role: ${jobRole}
+Job Description: ${jobDescription}
+${weblink ? `Company Website: ${weblink}` : ''}
+
+Research Data:
+${researchContent}
+
+Based on this information, create a detailed roadmap that includes:
+1. Different interview rounds with specific topics
+2. Difficulty levels for each topic
+3. Preparation modules and resources
+4. Timeline for preparation
+5. Company-specific tips and insights
+
+Return the roadmap in the specified JSON format.
+`),
+    schema: InterviewRoadmapSchema,
+  });
+
+  return res.object;
+}
+
+// Legacy functions for backward compatibility
 async function generateSerpQueries({
   query,
   numQueries = 3,
@@ -44,8 +244,6 @@ async function generateSerpQueries({
 }: {
   query: string;
   numQueries?: number;
-
-  // optional, if provided, the research will continue from the last learning
   learnings?: string[];
 }) {
   const res = await generateObject({

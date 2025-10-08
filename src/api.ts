@@ -1,7 +1,7 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
-import { deepResearch, writeFinalAnswer,writeFinalReport } from './deep-research';
+import { generateInterviewRoadmap } from './deep-research';
 
 const app = express();
 const port = process.env.PORT || 3051;
@@ -15,7 +15,43 @@ function log(...args: any[]) {
   console.log(...args);
 }
 
-// API endpoint to run research
+// API endpoint to generate interview preparation roadmap
+app.post('/api/interview-roadmap', async (req: Request, res: Response) => {
+  try {
+    const { companyName, jobDescription, jobRole, weblink } = req.body;
+
+    if (!companyName || !jobDescription || !jobRole) {
+      return res.status(400).json({ 
+        error: 'Company name, job description, and job role are required' 
+      });
+    }
+
+    log('\nGenerating interview preparation roadmap...\n');
+    log(`Company: ${companyName}`);
+    log(`Role: ${jobRole}`);
+
+    const roadmap = await generateInterviewRoadmap({
+      companyName,
+      jobDescription,
+      jobRole,
+      weblink,
+    });
+
+    // Return the roadmap
+    return res.json({
+      success: true,
+      roadmap,
+    });
+  } catch (error: unknown) {
+    console.error('Error in interview roadmap API:', error);
+    return res.status(500).json({
+      error: 'An error occurred while generating the interview roadmap',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Legacy endpoint for backward compatibility
 app.post('/api/research', async (req: Request, res: Response) => {
   try {
     const { query, depth = 3, breadth = 3 } = req.body;
@@ -26,28 +62,16 @@ app.post('/api/research', async (req: Request, res: Response) => {
 
     log('\nStarting research...\n');
 
-    const { learnings, visitedUrls } = await deepResearch({
-      query,
-      breadth,
-      depth,
+    // For backward compatibility, treat query as company name and generate roadmap
+    const roadmap = await generateInterviewRoadmap({
+      companyName: query,
+      jobDescription: 'General software engineering role',
+      jobRole: 'Software Engineer',
     });
 
-    log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-    log(
-      `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
-    );
-
-    const answer = await writeFinalAnswer({
-      prompt: query,
-      learnings,
-    });
-
-    // Return the results
     return res.json({
       success: true,
-      answer,
-      learnings,
-      visitedUrls,
+      roadmap,
     });
   } catch (error: unknown) {
     console.error('Error in research API:', error);
@@ -58,45 +82,9 @@ app.post('/api/research', async (req: Request, res: Response) => {
   }
 });
 
-// generate report API
-app.post('/api/generate-report',async(req:Request,res:Response)=>{
-  try{
-    const {query,depth = 3,breadth=3 } = req.body;
-    if(!query){
-      return res.status(400).json({error:'Query is required'});
-    }
-    log('\n Starting research...\n')
-    const {learnings,visitedUrls} = await deepResearch({
-      query,
-      breadth,
-      depth
-    });
-    log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-    log(
-      `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
-    );
-    const report = await writeFinalReport({
-      prompt:query,
-      learnings,
-      visitedUrls
-    });
-
-    return report
-    
-  }catch(error:unknown){
-    console.error("Error in generate report API:",error)
-    return res.status(500).json({
-      error:'An error occurred during research',
-      message:error instanceof Error? error.message: String(error),
-    })
-  }
-})
-
-
-
 // Start the server
 app.listen(port, () => {
-  console.log(`Deep Research API running on port ${port}`);
+  console.log(`Interview Preparation API running on port ${port}`);
 });
 
 export default app;
